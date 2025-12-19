@@ -12,6 +12,12 @@ pipeline {
             cleanWs()
         }
     }
+
+        stage('Checkout Code') {
+        steps {
+            checkout scm
+        }
+    }
         
         stage('Run Terrascan') {
             steps {
