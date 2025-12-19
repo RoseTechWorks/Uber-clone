@@ -7,6 +7,12 @@ pipeline {
         AWS_SECRET_ACCESS_KEY = credentials('aws_secret_access_key')
     }    
     stages {
+       stage('Clean Workspace') {
+        steps {
+            cleanWs()
+        }
+    }
+        
         stage('Run Terrascan') {
             steps {
                     // Run Terrascan and save the JSON output
