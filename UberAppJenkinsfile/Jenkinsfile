@@ -39,19 +39,24 @@ pipeline{
                 sh "npm install"
             }
         }
-        stage('OWASP FS SCAN') {
-            steps {
-                dependencyCheck(
-                    additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit',
-                    odcInstallation: 'DP-Check'
-                )
-        
-                dependencyCheckPublisher(
-                    pattern: '**/dependency-check-report.xml',
-                    nvdCredentialsId: 'NVD_API_KEY'   // <-- correct parameter
-                )
-            }
-        }
+       stage('OWASP FS SCAN') {
+    steps {
+        dependencyCheck(
+            odcInstallation: 'DP-check',
+            additionalArguments: '''
+              --scan ./
+              --format XML
+              --out .
+              --disableYarnAudit
+              --disableNodeAudit
+            '''
+        )
+
+        dependencyCheckPublisher(
+            pattern: '**/dependency-check-report.xml'
+        )
+    }
+}
 
 
 
