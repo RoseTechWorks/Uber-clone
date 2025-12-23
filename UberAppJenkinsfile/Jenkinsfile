@@ -44,12 +44,13 @@ pipeline{
         dependencyCheck(
             odcInstallation: 'DP-check',
             additionalArguments: '''
-              --scan ./
+              --scan .
               --format XML
               --out .
+              --nvdApiKey ${NVD_API_KEY}
               --disableYarnAudit
               --disableNodeAudit
-            '''
+            """
         )
 
         dependencyCheckPublisher(
