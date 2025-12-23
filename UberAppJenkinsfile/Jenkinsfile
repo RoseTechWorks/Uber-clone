@@ -76,7 +76,10 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-                withDockerRegistry(credentialsId: 'dockerpass') {
+                withDockerRegistry(
+                    credentialsId: 'dockerpass',
+                    url: 'https://index.docker.io/v1/'
+                ) {
                     sh 'docker build -t naomitechworks/uber:latest .'
                     sh 'docker push naomitechworks/uber:latest'
                 }
