@@ -1,111 +1,95 @@
-pipeline {
+pipeline{
     agent any
-
     environment {
-        NVD_API_KEY   = credentials('NVD_API_KEY')
-        SCANNER_HOME = tool 'sonar-scanner'
-    }
-
-    tools {
+        NVD_API_KEY= credentials('NVD_API_KEY')
+        SCANNER_HOME=tool 'sonar-scanner'
+    }      
+    tools{
         nodejs 'node16'
     }
-
     stages {
-
-        stage('Clean Workspace') {
-            steps {
+        stage('clean workspace'){
+            steps{
                 cleanWs()
             }
         }
-
-        stage('Checkout from Git') {
-            steps {
+        stage('Checkout from Git'){
+            steps{
                 git branch: 'main', url: 'https://github.com/RoseTechWorks/Uber-clone.git'
             }
         }
-
-        stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh """
-                    ${SCANNER_HOME}/bin/sonar-scanner \
-                    -Dsonar.projectName=Application_deployment \
-                    -Dsonar.projectKey=Application_deployment
-                    """
+        stage("Sonarqube Analysis "){
+            steps{
+                withSonarQubeEnv('sonar-scanner') {
+                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName="Application_deployment" \
+                    -Dsonar.projectKey="Application_deployment"'''
                 }
             }
         }
-
-        stage('Quality Gate') {
-            steps {
-                waitForQualityGate abortPipeline: false, credentialsId: 'sonartoken'
+        stage("quality gate"){
+           steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonartoken'
+                }
             }
         }
-
+        
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                sh "npm install"
             }
         }
-
         stage('OWASP FS SCAN') {
             steps {
                 dependencyCheck(
-                    odcInstallation: 'DP-check',
-                    additionalArguments: """
-                        --scan .
-                        --format XML
-                        --out .
-                        --nvdApiKey ${NVD_API_KEY}
-                        --disableYarnAudit
-                        --disableNodeAudit
-                    """
+                    additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit',
+                    odcInstallation: 'DP-Check'
                 )
-
+        
                 dependencyCheckPublisher(
-                    pattern: '**/dependency-check-report.xml'
+                    pattern: '**/dependency-check-report.xml',
+                    nvdCredentialsId: 'NVD_API_KEY'   // <-- correct parameter
                 )
             }
         }
 
-        stage('TRIVY FS SCAN') {
+
+
+
+         stage('TRIVY FS SCAN') {
             steps {
-                sh 'trivy fs . > trivyfs.json'
+                sh "trivy fs . > trivyfs.json"
             }
         }
-
-        stage('Docker Build & Push') {
-            steps {
-                withDockerRegistry(
-                    credentialsId: 'dockerpass',
-                    url: 'https://index.docker.io/v1/'
-                ) {
-                    sh 'docker build -t naomitechworks/uber:latest .'
-                    sh 'docker push naomitechworks/uber:latest'
-                }
-            }
-        }
-
-
-        stage('TRIVY IMAGE SCAN') {
-            steps {
-                sh 'trivy image naomitechworks/uber:latest > trivyimage.json'
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                dir('K8S') {
-                    withKubeConfig(
-                        credentialsId: 'k8s',
-                        namespace: 'webapps',
-                        serverUrl: 'https://66C995335E03B26E44A90917D3DFEAC1.gr7.us-east-2.eks.amazonaws.com'
-                    ) {
-                        sh 'kubectl apply -f deployment.yml'
-                        sh 'kubectl apply -f service.yml'
+        stage("Docker Build & Push"){
+            steps{
+                script{
+                   withDockerRegistry(credentialsId: 'dockerpass', toolName: 'docker'){
+                       sh "docker system prune -a -f --volumes"
+                       sh "docker build -t uber ."
+                       sh "docker tag uber naomitechworks/uber:latest "
+                       sh "docker push naomitechworks/uber:latest "
                     }
                 }
             }
         }
+        stage("TRIVY"){
+            steps{
+                sh "trivy image naomitechworks/uber:latest > trivyimage.json"
+            }
+        }        
+        stage('Deploy to kubernetes'){
+            steps{
+                script{
+                    dir('K8S') {
+                       withKubeConfig(caCertificate: '', clusterName: 'EKS_CLOUD', contextName: '', credentialsId: 'k8s', namespace: 'webapps', restrictKubeConfigAccess: false, serverUrl: 'https://66C995335E03B26E44A90917D3DFEAC1.gr7.us-east-2.eks.amazonaws.com') {
+                                sh 'kubectl apply -f deployment.yml'
+                                sh 'kubectl apply -f service.yml'
+                        }
+                    }
+                }
+            }
+        }        
     }
+    
 }
