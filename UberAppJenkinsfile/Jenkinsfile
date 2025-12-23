@@ -76,12 +76,13 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-                withDockerRegistry(credentialsId: 'dockerpass', toolName: 'docker') {
+                withDockerRegistry(credentialsId: 'dockerpass') {
                     sh 'docker build -t naomitechworks/uber:latest .'
                     sh 'docker push naomitechworks/uber:latest'
                 }
             }
         }
+
 
         stage('TRIVY IMAGE SCAN') {
             steps {
